@@ -1,10 +1,11 @@
 (ns snake.core
   (:import [javax.swing JPanel JFrame Timer]
            [java.awt Color Font]
-           [java.awt.event KeyEvent KeyListener ActionListener]))
+           [java.awt.event KeyEvent KeyListener ActionListener])
+  (:gen-class))
 
-(def screen-width 800)
-(def screen-height 600)
+(def screen-width 400)
+(def screen-height 300)
 
 (def size 10) ;; for both the x and y of all objects.
 
@@ -42,15 +43,18 @@
     KeyEvent/VK_UP    [ 0 -5]
     KeyEvent/VK_DOWN  [ 0  5]))
 
+(defn draw-object [object graphics]
+  (let [{:keys [body color]} object]
+    (.setColor graphics color)
+    (doseq [[x y] body] (.fillRect graphics x y size size))))
+
 (defrecord Player [body color direction]
   SObject
   (body [_] body)
   (head [_] (first body))
-  (generate [x] (assoc x :body (list (vector (/ screen-width 2) (/ screen-height 2))) :direction [-5 0]))
-  SDraw
-  (draw [_ graphics]
-    (.setColor graphics color)
-    (doseq [[x y] body] (.fillRect graphics x y size size)))
+  (generate [x] (assoc x :body (list [(/ screen-width 2)
+                                      (/ screen-height 2)])
+                         :direction [-5 0])) ;; left
   SMove
   (turn [x e] (assoc x :direction (key->xy e)))
   (move [x] (let [head (map + (head x) direction)]
@@ -67,23 +71,20 @@
   (body [_] body)
   (head [_] (first body))
   (generate [x] (assoc x :body (list (vector (rand-int (- screen-width size 20))
-                                             (rand-int (- screen-height size 40))))))
-  SDraw
-  (draw [_ graphics]
-    (.setColor graphics color)
-    (doseq [[x y] body] (.fillRect graphics x y size size))))
+                                             (rand-int (- screen-height size 40)))))))
 
 (def player (atom (generate (Player. nil Color/RED nil))))
 (def apple (atom (generate (Apple. nil Color/GREEN))))
 
 (defn panel []
   (proxy [JPanel KeyListener ActionListener] []
-    (paintComponent [g] (proxy-super paintComponent g) (draw @player g) (draw @apple g))
+    (paintComponent [g] (proxy-super paintComponent g) (draw-object @player g) (draw-object @apple g))
     (actionPerformed [_] (if (collision? @player @apple)
                            (do (swap! player grow) (swap! apple generate))
                            (swap! player move))
                          (.repaint this))
-    (keyPressed [e] (swap! player turn e))))
+    (keyPressed [e] (swap! player turn e))
+    (keyReleased [_])))
 
 (defn frame []
   (doto (JFrame. "Snake")
@@ -95,5 +96,5 @@
         panel (panel)] 
     (.setFocusable panel true) 
     (.addKeyListener panel panel)
-    (.start (Timer. 75 panel))
+    (.start (Timer. 50 panel))
     (.add frame panel)))
